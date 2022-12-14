@@ -20,12 +20,10 @@ class BlockOutput:
 
     @property
     def value(self) -> bool:
-        print(f"read output of block {self.label}")
         return self._output_value
 
     @value.setter
     def value(self, new_value: bool):
-        print(f"update output of block {self.label}")
         self._output_value = new_value
 
 

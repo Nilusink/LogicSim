@@ -30,14 +30,14 @@ def test_blockio() -> int:
     block1 = AndBlock([o1, o2])
     block2 = AndBlock([o2, o1])
 
-    block1.compute()
-    block2.compute()
+    print(block1.compute())
+    print(block2.compute())
 
     o1.value = True
-    o2.value = False
+    o2.value = True
 
-    block1.compute()
-    block2.compute()
+    print(block1.compute())
+    print(block2.compute())
 
     return 0
 
