@@ -7,6 +7,9 @@ The Basic Connection Line
 Author:
 Nilusink
 """
+import typing as tp
+from contextlib import suppress
+
 import pygame as pg
 from ..basegame.groups import Drawn
 from ..basegame.game import BaseGame
@@ -14,16 +17,29 @@ from ...additional.classes import Vec2
 from ...additional.functions import create_bezier
 
 
+def aa_line(surface: pg.Surface, color: tuple[float, float, float], start_pos: tp.Any, end_pos: tp.Any, width: int = 1):
+    """
+    anti-aliased line
+    """
+    # big back line
+    pg.draw.line(surface, color + (100,), start_pos, end_pos, width + 2)
+
+    # main line
+    pg.draw.line(surface, color + (255,), start_pos, end_pos, width)
+
+
 class Line(pg.sprite.Sprite):
     set_points: list[Vec2] = ...
     _finished: bool = False
     active: bool = False
 
-    def __init__(self, start_pos: Vec2):
+    def __init__(self, start_pos: Vec2, parent):
         """
         set the first point and bind to mouse
         :param start_pos: the starting position of the line
         """
+        self._parent = parent
+        self._target = None
         self.set_points = [start_pos]
 
         super().__init__()
@@ -31,10 +47,19 @@ class Line(pg.sprite.Sprite):
 
         self.__hook_id = BaseGame.on_event(pg.MOUSEBUTTONDOWN, self.add_current_mouse)
 
-    def draw(self, surface: pg.Surface):
+    def set_target(self, target):
+        """
+        set the target node
+        """
+        self._target = target
+
+    def draw(self, _surface: pg.Surface):
         """
         draw the current line
         """
+        if pg.key.get_pressed()[pg.K_ESCAPE] and not self._finished:
+            self.cancel()
+
         calc_points = self.set_points.copy()
 
         if not self._finished:
@@ -55,6 +80,7 @@ class Line(pg.sprite.Sprite):
             else:
                 calc_points.append(mouse_pos)
 
+        # draw lines
         for i in range(len(calc_points) - 2):
             de1 = calc_points[i+1] - calc_points[i]
             de2 = calc_points[i+2] - calc_points[i+1]
@@ -62,34 +88,37 @@ class Line(pg.sprite.Sprite):
             p1 = calc_points[i] + de1 * .8
             p2 = calc_points[i+1] + de2 * .2
 
+            # create curves for the edges
             curve = create_bezier(p1, p2, calc_points[i+1])
             for j in range(len(curve) - 1):
-                pg.draw.line(
-                    surface,
-                    (255, 0, 0, 255) if self.active else (50, 0, 0, 255),
+                aa_line(
+                    BaseGame.lowest_layer,
+                    (255, 0, 0) if self.active else (50, 0, 0),
                     curve[j].xy, curve[j+1].xy,
                     width=3,
                 )
 
-            pg.draw.line(
-                surface,
-                color=(255, 0, 0, 255) if self.active else (50, 0, 0, 255),
-                start_pos=(calc_points[i+1]-de1 * .8).xy,
+            # draw straights
+            aa_line(
+                BaseGame.lowest_layer,
+                color=(255, 0, 0) if self.active else (50, 0, 0),
+                start_pos=(calc_points[i+1]-de1 * .8).xy if i != 0 else calc_points[0].xy,
                 end_pos=p1.xy,
                 width=3,
             )
 
-        de2 = calc_points[-1] - calc_points[-2]
+        if len(calc_points) > 1:
+            de2 = calc_points[-1] - calc_points[-2]
 
-        p2 = calc_points[-2] + de2 * .2
+            p2 = calc_points[-2] + de2 * .2
 
-        pg.draw.line(
-            surface,
-            color=(255, 0, 0, 255) if self.active else (50, 0, 0, 255),
-            start_pos=p2.xy,
-            end_pos=calc_points[-1].xy,
-            width=3,
-        )
+            aa_line(
+                BaseGame.lowest_layer,
+                color=(255, 0, 0) if self.active else (50, 0, 0),
+                start_pos=p2.xy if len(calc_points) != 2 else calc_points[0].xy,
+                end_pos=calc_points[-1].xy,
+                width=3,
+            )
 
     def add_current_mouse(self, event: pg.event.Event):
         """
@@ -110,18 +139,30 @@ class Line(pg.sprite.Sprite):
             else:
                 self.add(mouse_pos)
 
-        elif event.button == 3:
-            self.finish()
-
     def add(self, point: Vec2):
         """
         add a point to the line
         """
         self.set_points.append(point)
 
+    def cancel(self):
+        """
+        stop drawing the line and delete it
+        """
+        if BaseGame.globals.drawing_line is self:
+            BaseGame.globals.drawing_line = None
+
+        Drawn.remove(self)
+
+        self.set_points.clear()
+
+        self.finish()
+        del self
+
     def finish(self):
         """
         stop drawing the line
         """
-        BaseGame.clear_on_event(self.__hook_id)
+        with suppress(KeyError):
+            BaseGame.clear_on_event(self.__hook_id)
         self._finished = True

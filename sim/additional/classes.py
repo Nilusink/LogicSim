@@ -11,22 +11,16 @@ import typing as tp
 import numpy as np
 
 
-class BetterDict:
-    """
-    each element is also accessible with instance.element
-    """
-    def __init__(self, **initial) -> None:
-        for key, value in initial.items():
-            setattr(self, key, value)
+class BetterDict(dict):
+    def __getattr__(self, item):
+        result = self[item]
+        if issubclass(type(result), dict):
+            return BetterDict(result)
 
-    def __setitem__(self, key: str, value: tp.Any) -> None:
-        setattr(self, key, value)
+        return result
 
-    def __getitem__(self, item: str) -> tp.Any:
-        return self.__dict__[item]
-
-    def __delitem__(self, key) -> None:
-        delattr(self, key)
+    def __setattr__(self, key, value):
+        self[key] = value
 
 
 class Vec2:

@@ -13,12 +13,12 @@ import typing as tp
 
 
 # local imports
+from .groups import Drawn, Updated
 from ...additional.classes import BetterDict
-from .groups import Drawn
 
 
 # Constants
-DEFAULT_WINDOW_SIZE: tuple[int, int] = (1000, 600)
+DEFAULT_WINDOW_SIZE: tuple[int, int] = (1920, 1080)
 
 
 class Hook(tp.TypedDict):
@@ -30,12 +30,16 @@ class _BaseGame:
     running: bool = True
     _hooks: dict[int, Hook]
     _in_loop: list[tuple[tp.Callable, tuple, dict]]
+    globals: BetterDict
 
     def __init__(self):
         """
         Initialize the game on the lowest level
         """
         window_size = DEFAULT_WINDOW_SIZE
+        self.globals = BetterDict({
+            "drawing_line": None,
+        })
         self._in_loop = []
         self._hooks = {}
 
@@ -44,12 +48,14 @@ class _BaseGame:
         pg.font.init()
 
         # create screens and layers
-        self.screen = pg.display.set_mode(window_size, pg.SCALED)
+        self.screen = pg.display.set_mode(window_size, pg.FULLSCREEN)
         self.lowest_layer = pg.Surface(window_size, pg.SRCALPHA, 32)
         self.middle_layer = pg.Surface(window_size, pg.SRCALPHA, 32)
         self.top_layer = pg.Surface(window_size, pg.SRCALPHA, 32)
         self.font = pg.font.SysFont(None, 24)
         pg.display.set_caption("Digital Logic Sim")
+
+        # self.gate_font = pg.font.Font("freesansbold.tff", 32)
 
     def update(self):
         """
@@ -63,6 +69,7 @@ class _BaseGame:
         self.middle_layer.fill((0, 0, 0, 0))
         self.top_layer.fill((0, 0, 0, 0))
 
+        Updated.update(0)
         Drawn.draw(self.middle_layer)
 
         # execute the "in loop" functions
