@@ -1,9 +1,8 @@
 """
-__main__.py
+tests.py
 14. December 2022
 
-Package main function to run simulation tests without 
-the UI.
+Code to run tests without the UI.
 
 Author:
 melektron
@@ -11,8 +10,8 @@ melektron
 
 import sys
 
-from baseblocks import AndBlock
-from blockio import BlockOutput
+from .sim.core.logic.baseblocks import AndBlock
+from .sim.core.logic.blockio import BlockOutput
 
 
 def print_quick_help():

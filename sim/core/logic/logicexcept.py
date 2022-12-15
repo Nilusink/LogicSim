@@ -8,10 +8,9 @@ Author:
 melektron
 """
 
-"""
-Invalid block inputs or invalid count of block inputs
-"""
-
 
 class InputError(BaseException):
+    """
+    Invalid block inputs or invalid count of block inputs
+    """
     pass
