@@ -29,12 +29,14 @@ class Hook(tp.TypedDict):
 class _BaseGame:
     running: bool = True
     _hooks: dict[int, Hook]
+    _in_loop: list[tuple[tp.Callable, tuple, dict]]
 
     def __init__(self):
         """
         Initialize the game on the lowest level
         """
         window_size = DEFAULT_WINDOW_SIZE
+        self._in_loop = []
         self._hooks = {}
 
         # initialize pygame
@@ -62,6 +64,14 @@ class _BaseGame:
         self.top_layer.fill((0, 0, 0, 0))
 
         Drawn.draw(self.middle_layer)
+
+        # execute the "in loop" functions
+        in_loop = self._in_loop.copy()
+        self._in_loop.clear()
+
+        for event in in_loop:
+            func, args, kwargs = event
+            func(*args, **kwargs)
 
         # draw layers
         self.screen.blit(self.lowest_layer, (0, 0))
@@ -109,6 +119,12 @@ class _BaseGame:
         }
 
         return pid
+
+    def in_loop(self, func: tp.Callable, *args, **kwargs):
+        """
+        execute a function on the next run of Basegame.update()
+        """
+        self._in_loop.append((func, args, kwargs))
 
     def clear_on_event(self, hook_id: int):
         """
