@@ -31,7 +31,7 @@ def aa_line(surface: pg.Surface, color: tuple[float, float, float], start_pos: t
 class Line(pg.sprite.Sprite):
     set_points: list[Vec2] = ...
     _finished: bool = False
-    active: bool = False
+    _active: bool = False
 
     def __init__(self, start_pos: Vec2, parent):
         """
@@ -46,6 +46,25 @@ class Line(pg.sprite.Sprite):
         Drawn.add(self)
 
         self.__hook_id = BaseGame.on_event(pg.MOUSEBUTTONDOWN, self.add_current_mouse)
+
+    @property
+    def parent(self):
+        return self._parent
+
+    @property
+    def target(self):
+        return self._target
+
+    @property
+    def active(self) -> bool:
+        return self._active
+
+    @active.setter
+    def active(self, value: bool):
+        self._active = value
+
+        if self.target is not None:
+            self.target.update_input(value)
 
     def set_target(self, target):
         """

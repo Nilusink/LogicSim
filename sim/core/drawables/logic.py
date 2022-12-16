@@ -7,11 +7,13 @@ adds basic and modular logic stuff
 Author:
 Nilusink
 """
+from contextlib import suppress
+
 import pygame as pg
 import typing as tp
 from random import randint
 
-from ..basegame.groups import Gates
+from ..basegame.groups import Gates, Updated
 from ..basegame.game import BaseGame
 from ...additional.classes import Vec2
 from .interactions import LinePoint, DraggablePoint
@@ -23,9 +25,12 @@ class Base(DraggablePoint):
     """
     _size: Vec2
     port_size: float = 10
+    port_states: list[bool]
 
     def __init__(self, position: Vec2, name: str, logic_func: tp.Callable, inputs: int, outputs: int):
         self.__id = Gates.yield_unique_id()
+
+        self.port_states = [False] * inputs
 
         self._input_points = []
         self._output_points = []
@@ -38,6 +43,7 @@ class Base(DraggablePoint):
         self._logic_func = logic_func
 
         super().__init__(position)
+        # Updated.add(self)
         Gates.add(self)
 
         # setup ports
@@ -84,7 +90,8 @@ class Base(DraggablePoint):
         """
         draws the gate
         """
-        # print(self.position.xy)
+        self.update_logic()
+
         p0x = self.position.x - self._size.x / 2
         p0y = self.position.y - self._size.y / 2
 
@@ -104,6 +111,17 @@ class Base(DraggablePoint):
         text_rect.center = self.position.xy
 
         surface.blit(text, text_rect)
+
+    def update_logic(self, *_trash):
+        result: tuple[bool] | bool = self._logic_func(*self.port_states)
+
+        if issubclass(type(result), tuple):
+            for i in range(len(result)):
+                self._output_points[i].update_connections(result[i])
+
+            return
+
+        self._output_points[0].update_connections(result)
 
     def check_collision(self, point: Vec2):
         """
@@ -146,6 +164,12 @@ class Base(DraggablePoint):
             y = z + off + off * i * 2
 
             self._output_points[i].position = Vec2.from_cartesian(self.position.x + self._size.x / 2, y)
+
+    def update_input(self, input_id: int, value: bool):
+        """
+        update the logic gate
+        """
+        self.port_states[input_id] = value
 
     def __call__(self, *args, **kwargs):
         return self._logic_func(*args, **kwargs)

@@ -12,7 +12,7 @@ import typing as tp
 
 from ..basegame.game import BaseGame
 from ...additional.classes import Vec2
-from ..basegame.groups import Drawn, Updated
+from ..basegame.groups import Drawn, Updated, Gates
 from .lines import Line
 
 
@@ -132,6 +132,7 @@ class DraggablePoint(Point):
 
 class LinePoint(Point):
     _connected_lines: list[Line]
+    _state: bool = False
 
     def __init__(self, *args, **kwargs):
         """
@@ -147,6 +148,14 @@ class LinePoint(Point):
         super().__init__(*args, **kwargs)
 
         BaseGame.on_event(pg.MOUSEBUTTONDOWN, self.on_click)
+
+    @property
+    def parent(self):
+        return self._parent
+
+    @property
+    def state(self):
+        return self._state
 
     def on_click(self, _event):
         """
@@ -197,6 +206,29 @@ class LinePoint(Point):
                 continue
 
             line.set_points[-1] = self.position
+
+    def update_input(self, value: bool):
+        """
+        update a point that is an input
+        """
+        if not self._type == "i":
+            return
+            # raise RuntimeError("can only update the input values of an input gate")
+
+        self._state = value
+        self.parent.update_input(self._pid, value)
+
+    def update_connections(self, value: bool):
+        """
+        update all connected points (gates)
+        """
+        if not self._type == "o":
+            return
+            # raise RuntimeError("can only update from an output")
+
+        # update points
+        for line in self._connected_lines:
+            line.active = value
 
 
 class Button(pg.sprite.Sprite):
@@ -255,6 +287,10 @@ class Button(pg.sprite.Sprite):
 
         self.__event_id = BaseGame.on_event(pg.MOUSEBUTTONDOWN, self.__on_click)
 
+    @property
+    def position(self) -> Vec2:
+        return self._position
+
     def __on_click(self, event: pg.event.Event):
         """
         called by an event, executes the on_click function
@@ -305,23 +341,150 @@ class Button(pg.sprite.Sprite):
         Drawn.remove(self)
 
 
+class CircularButton(Button):
+    def __init__(
+            self,
+            position: tuple[float | int, float | int] | Vec2,
+            radius: float,
+            bg: tuple[float, float, float, float] = ...,
+            fg: tuple[float, float, float, float] = ...,
+            active_bg: tuple[float, float, float, float] = ...,
+            active_fg: tuple[float, float, float, float] = ...,
+            on_click: tp.Callable = ...,
+            text: str = ...,
+    ):
+        if active_bg is ...:
+            active_bg = (255, 100, 100, 255)
+
+        self._radius = radius
+
+        super().__init__(
+            position,
+            (radius,) * 2,
+            bg,
+            fg,
+            active_bg,
+            active_fg,
+            on_click,
+            text,
+        )
+
+    def draw(self, surface: pg.Surface):
+        """
+        draw the button on the screen
+        """
+        mouse_pos = Vec2.from_cartesian(*pg.mouse.get_pos())
+
+        hover = self.check_collision(mouse_pos)
+
+        pg.draw.circle(
+            surface,
+            self.active_bg if hover else self.bg,
+            self._position.xy,
+            self._radius,
+        )
+
+        # draw text
+        text = BaseGame.font.render(self.text, True, self.active_fg if hover else self.fg)
+        text_rect = text.get_rect()
+
+        text_rect.center = (self._position + (self._size / 2)).xy
+
+        BaseGame.lowest_layer.blit(text, text_rect)
+
+
+class IOToggleButton(pg.sprite.Sprite):
+    _state: bool = False
+
+    def __init__(
+            self,
+            position: tuple[float | int, float | int] | Vec2,
+            output_position: tuple[float | int, float | int] | Vec2,
+            parent,
+            pid: int,
+            type: str,
+    ):
+        self._parent = parent
+
+        super().__init__()
+
+        self.cb = CircularButton(
+            position if type == "o" else output_position,
+            radius=30,
+            on_click=self.on_toggle,
+            text="",
+            bg=(70, 70, 70, 255),
+            active_bg=(100, 100, 100, 255),
+        )
+
+        self.lb = LinePoint(
+            output_position if type == "o" else position,
+            parent=parent,
+            id=pid,
+            type=type,
+        )
+        Drawn.remove(self.cb)
+        Drawn.remove(self.lb)
+        Drawn.add(self)
+
+    def set_state(self, value: bool):
+        self._state = value
+        self._update()
+
+    def on_toggle(self, *_trash):
+        # actual toggling
+        self._state = not self._state
+        self._update()
+
+    def _update(self):
+        if self._state:
+            self.cb.bg = (255, 70, 70, 255)
+            self.cb.active_bg = (255, 100, 100, 255)
+
+        else:
+            self.cb.bg = (70, 70, 70, 255)
+            self.cb.active_bg = (100, 100, 100, 255)
+
+        # update parent
+        self.lb.update_connections(self._state)
+
+    def draw(self, surface: pg.Surface):
+        pg.draw.line(surface, (0, 0, 0, 255), self.cb.position.xy, self.lb.position.xy, 5)
+
+        self.cb.draw(surface)
+        self.lb.draw(surface)
+
+
 class IOBox(pg.sprite.Sprite):
     _pos: Vec2
     size: Vec2
+    _id: int
+
+    _inputs: list[IOToggleButton]
 
     def __init__(
             self,
             position: tuple[float | int, float | int] | Vec2,
             size: tuple[float | int, float | int] | Vec2,
     ):
+        self._id = Gates.yield_unique_id()
+
         if not issubclass(type(size), Vec2):
             size = Vec2.from_cartesian(*size)
 
         self.position = position
+        self._inputs = []
         self.size = size
 
         super().__init__()
         Drawn.add(self)
+        Gates.add(self)
+
+        BaseGame.on_event(pg.MOUSEBUTTONDOWN, self.on_click)
+
+    @property
+    def id(self) -> int:
+        return self._id
 
     @property
     def position(self) -> Vec2:
@@ -358,6 +521,9 @@ class IOBox(pg.sprite.Sprite):
             )
             pg.draw.circle(surface, (80, 80, 80, 255), c_pos, 20)
 
+    def on_click(self, _event: pg.event.Event):
+        ...
+
 
 class InputsBox(IOBox):
     def __init__(
@@ -367,6 +533,18 @@ class InputsBox(IOBox):
     ):
         super().__init__(position, size)
 
+    def on_click(self, _event: pg.event.Event):
+        mouse_pos = Vec2.from_cartesian(*pg.mouse.get_pos())
+
+        if self.check_collision(mouse_pos):
+            self._inputs.append(IOToggleButton(
+                (self.position.x - 45, mouse_pos.y),
+                (self.position.x + self.size.x + 15, mouse_pos.y),
+                parent=self,
+                pid="0",
+                type="o",
+            ))
+
 
 class OutputsBox(IOBox):
     def __init__(
@@ -375,3 +553,18 @@ class OutputsBox(IOBox):
             size: tuple[float | int, float | int] | Vec2,
     ):
         super().__init__(position, size)
+
+    def on_click(self, _event: pg.event.Event):
+        mouse_pos = Vec2.from_cartesian(*pg.mouse.get_pos())
+
+        if self.check_collision(mouse_pos):
+            self._inputs.append(IOToggleButton(
+                (self.position.x - 45, mouse_pos.y),
+                (self.position.x + self.size.x + 15, mouse_pos.y),
+                parent=self,
+                pid=len(self._inputs),
+                type="i",
+            ))
+
+    def update_input(self, id: int, value: bool):
+        self._inputs[id].set_state(value)
