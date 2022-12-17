@@ -55,7 +55,7 @@ def main():
                 return
 
             # write to file
-            serialize_all(f"./blocks/{block_name}")
+            serialize_all(f"./blocks/{block_name}.json")
 
             # create new block from old gates
             new_block = CustomBlock(
@@ -96,15 +96,32 @@ def main():
 
             new_block.start_follow()
 
+            for button in blocks_buttons:
+                button.delete()
+
+            i = 1
+            for file in os.listdir("./blocks"):
+                i += 1
+                blocks_buttons.append(
+                    Button(
+                        (201 * i, 1000),
+                        (200, 80),
+                        text=".".join(file.split(".")[:-1]),
+                        on_click=lambda *_e, f=f"./blocks/{file}": load_prevoius(f),
+                        bg=(100, 200, 100, 255),
+                        active_bg=(150, 200, 150, 255),
+                    )
+                )
+
         except Exception as e:
             print("error:", format_exc())
             raise e
 
-    def load_prevoius(*_args):
-        if not os.path.exists("./blocks/out1.json"):
+    def load_prevoius(file: str):
+        if not os.path.exists(file):
             return
 
-        load_from_file("./blocks/out1.json")
+        load_from_file(file, True)
 
     Button(
         (0, 1000),
@@ -128,14 +145,18 @@ def main():
         active_bg=(150, 150, 200, 255),
     )
 
-    Button(
-        (201, 0),
-        (200, 80),
-        text="load",
-        on_click=load_prevoius,
-        bg=(100, 200, 100, 255),
-        active_bg=(150, 200, 150, 255),
-    )
+    i = 1
+    blocks_buttons: list[Button] = []
+    for file in os.listdir("./blocks"):
+        i += 1
+        blocks_buttons.append(Button(
+            (201 * i, 1000),
+            (200, 80),
+            text=".".join(file.split(".")[:-1]),
+            on_click=lambda *_e, f=f"./blocks/{file}": load_prevoius(f),
+            bg=(100, 200, 100, 255),
+            active_bg=(150, 200, 150, 255),
+        ))
 
     name = Entry(
         (760, 5),

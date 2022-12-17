@@ -76,11 +76,9 @@ class Line(pg.sprite.Sprite):
         """
         set the target node
         """
-        print("updating target", target)
         self._target = target
 
     def set_parent(self, parent):
-        print("updating parent", parent)
         self._parent = parent
 
     def draw(self, _surface: pg.Surface):

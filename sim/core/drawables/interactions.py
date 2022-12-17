@@ -749,7 +749,6 @@ class IOToggleButton(pg.sprite.Sprite):
         """
         completely remove the ToggleButton
         """
-        print("deleting", self)
         Drawn.remove(self)
         self.cb.delete()
         self.lb.delete()

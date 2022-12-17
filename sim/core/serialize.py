@@ -13,7 +13,7 @@ import json
 
 # local imports
 from .drawables.interactions import InputsBox, LinePoint, OutputsBox
-from .drawables.logic import And, Not, Base
+from .drawables.logic import And, Not, Base, CustomBlock
 from .basegame.groups import Gates, Wires
 from ..additional.classes import Vec2
 from .drawables.lines import Line
@@ -109,7 +109,18 @@ def load_from_file(file: str, load_as_block: bool = False):
 
     data: SerializedOutput = json.load(open(file, "r"))
 
-    if not load_as_block:
+    new_block : CustomBlock = ...
+    if load_as_block:
+        new_block = CustomBlock(
+            (0, 0),
+            ".".join(file.split("/")[-1].split("\\")[-1].split(".")[:-1]),
+            None,
+            len(data["input"]),
+            len(data["output"]),
+        )
+        new_block.start_follow()
+
+    else:
         # clear current screen
         for gate in Gates.sprites():
             gate.delete()
@@ -139,7 +150,7 @@ def load_from_file(file: str, load_as_block: bool = False):
             case _:
                 continue
 
-        new_gate.position = gate["position"]
+        new_gate.position = (1000, -10_000) if load_as_block else gate["position"]
         gate_alias[gate["id"]] = new_gate
 
     # connect wires
@@ -171,8 +182,12 @@ def load_from_file(file: str, load_as_block: bool = False):
             parent_node = parent.output_points[pid]
 
         elif parent == -1:
-            parent = InputsBox.instance
-            parent_node = parent.inputs[pid].lb
+            if load_as_block:
+                parent_node = new_block.input_output_points[pid]
+
+            else:
+                parent = InputsBox.instance
+                parent_node = parent.inputs[pid].lb
 
         elif parent == -2:
             raise RuntimeError("parent cannot be output node")
@@ -189,8 +204,12 @@ def load_from_file(file: str, load_as_block: bool = False):
             raise RuntimeError("target cannot be input node")
 
         elif target == -2:
-            target = OutputsBox.instance
-            target_node = target.inputs[tid].lb
+            if load_as_block:
+                target_node = new_block.output_input_points[tid]
+
+            else:
+                target = OutputsBox.instance
+                target_node = target.inputs[tid].lb
 
         else:
             raise RuntimeError("invalid target node id")
@@ -202,8 +221,9 @@ def load_from_file(file: str, load_as_block: bool = False):
         )
 
         # add all points to line
-        for point in wire["points"][1:-1]:
-            new_line.add(Vec2.from_cartesian(*point))
+        if not load_as_block:
+            for point in wire["points"][1:-1]:
+                new_line.add(Vec2.from_cartesian(*point))
 
         # add target node
         new_line.add(target_node.position)
