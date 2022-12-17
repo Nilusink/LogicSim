@@ -8,12 +8,13 @@ Author:
 Nilusink
 """
 from traceback import format_exc
+import base64
 import os
 
 from sim.core.drawables.interactions import InputsBox, OutputsBox
 from sim.core.drawables.logic import Not, And, Base, CustomBlock
 from sim.core.serialize import serialize_all, load_from_file
-from sim.core.drawables.interactions import Button
+from sim.core.drawables.interactions import Button, Entry
 from sim.core.basegame.groups import Gates, Wires
 from sim.core.basegame.game import BaseGame
 from sim.core.drawables.lines import Line
@@ -44,7 +45,9 @@ def main():
 
     def generate_block(*_trash):
         try:
-            print("\n\ncreate")
+            block_name = name.text
+            name.text = f"Block {base64.b64encode(os.urandom(3)).decode()}"
+
             inp = inputs.inputs
             out = outputs.inputs
 
@@ -52,16 +55,13 @@ def main():
                 return
 
             # write to file
-            serialize_all("./blocks/out1.json")
-
-            def logic_func(*_trash):
-                return (False,) * len(out)
+            serialize_all(f"./blocks/{block_name}")
 
             # create new block from old gates
             new_block = CustomBlock(
                 (0, 0),
-                "Block",
-                logic_func,
+                block_name,
+                None,
                 len(inp),
                 len(out),
             )
@@ -136,6 +136,15 @@ def main():
         bg=(100, 200, 100, 255),
         active_bg=(150, 200, 150, 255),
     )
+
+    name = Entry(
+        (760, 5),
+        (400, 80),
+        bg=(60, 60, 60, 150),
+        active_bg=(70, 70, 70, 230),
+        border_radius=20,
+    )
+    name.text = f"Block {base64.b64encode(os.urandom(3)).decode()}"
 
     while True:
         BaseGame.update()

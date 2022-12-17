@@ -9,6 +9,7 @@ Nilusink
 """
 from contextlib import suppress
 
+import time
 import pygame as pg
 import typing as tp
 
@@ -108,7 +109,7 @@ class DraggablePoint(Point):
         """
         basic updates needed
         """
-        if self._live_follow:
+        if self._live_follow and not BaseGame.stop_listen():
             self.position = Vec2.from_cartesian(*pg.mouse.get_pos()) + self._mouse_delta_on_start
 
     def start_follow(self, event=...):
@@ -176,36 +177,6 @@ class LinePoint(Point):
     def connected_lines(self) -> list[Line]:
         return self._connected_lines.copy()
 
-    def add_connection(self, line: Line):
-        self._connected_lines.append(line)
-
-    def on_click(self, _event):
-        """
-        for drawing lines
-        """
-        if not self._hidden:
-            mouse_pos = Vec2.from_cartesian(*pg.mouse.get_pos())
-
-            if self.check_collision(mouse_pos):
-                if BaseGame.globals.drawing_line is not None and \
-                        self._type == "i" and len(self._connected_lines) == 0:
-                    line: Line = BaseGame.globals.drawing_line
-
-                    if not line.set_points[0] == self.position:
-                        line.add(self.position)
-                        line.set_target(self)
-
-                        line.finish()
-
-                        self._connected_lines.append(line)
-                        BaseGame.globals.drawing_line = None
-                        return
-
-                if self._type == "o" and BaseGame.globals.drawing_line is None:
-                    line = Line(self.position, self)
-                    BaseGame.globals.drawing_line = line
-                    self._connected_lines.append(line)
-
     @property
     def position(self) -> Vec2:
         """
@@ -230,6 +201,36 @@ class LinePoint(Point):
                     continue
 
                 line.set_points[-1] = self.position
+
+    def add_connection(self, line: Line):
+        self._connected_lines.append(line)
+
+    def on_click(self, _event):
+        """
+        for drawing lines
+        """
+        if not self._hidden and not BaseGame.stop_listen():
+            mouse_pos = Vec2.from_cartesian(*pg.mouse.get_pos())
+
+            if self.check_collision(mouse_pos):
+                if BaseGame.globals.drawing_line is not None and \
+                        self._type == "i" and len(self._connected_lines) == 0:
+                    line: Line = BaseGame.globals.drawing_line
+
+                    if not line.set_points[0] == self.position:
+                        line.add(self.position)
+                        line.set_target(self)
+
+                        line.finish()
+
+                        self._connected_lines.append(line)
+                        BaseGame.globals.drawing_line = None
+                        return
+
+                if self._type == "o" and BaseGame.globals.drawing_line is None:
+                    line = Line(self.position, self)
+                    BaseGame.globals.drawing_line = line
+                    self._connected_lines.append(line)
 
     def update_input(self, value: bool):
         """
@@ -330,7 +331,7 @@ class Button(pg.sprite.Sprite):
         called by an event, executes the on_click function
         """
         if self.check_collision(Vec2.from_cartesian(*pg.mouse.get_pos())):
-            if self._on_click is not ...:
+            if self._on_click is not ... and not BaseGame.stop_listen():
                 self._on_click(event)
 
     def check_collision(self, point: Vec2) -> bool:
@@ -348,7 +349,7 @@ class Button(pg.sprite.Sprite):
         """
         mouse_pos = Vec2.from_cartesian(*pg.mouse.get_pos())
 
-        hover = self.check_collision(mouse_pos)
+        hover = self.check_collision(mouse_pos) and not BaseGame.stop_listen()
 
         pg.draw.rect(
             BaseGame.lowest_layer,
@@ -381,6 +382,254 @@ class Button(pg.sprite.Sprite):
         Drawn.remove(self)
         with suppress(KeyError):
             BaseGame.clear_on_event(self.__event_id)
+
+
+class Focusable(pg.sprite.Sprite):
+    __focused: bool = False
+
+    def __init__(self, focused: bool = False):
+        super().__init__()
+        self.focused = focused
+
+    @property
+    def focused(self) -> bool:
+        return self.__focused
+
+    @focused.setter
+    def focused(self, value: bool):
+        """
+        set or not set the focus of the entry
+        """
+        if value:
+            if BaseGame.globals.focused in (self, None):
+                BaseGame.globals.focused = self
+                self.__focused = True
+                return
+
+            BaseGame.globals.focused.focused = False
+            BaseGame.globals.focused = self
+            self.__focused = True
+            return
+
+        if BaseGame.globals.focused is self:
+            BaseGame.globals.focused = None
+
+        self.__focused = False
+
+
+class Entry(Focusable):
+    """
+    a basic entry (thing where you can type)
+    """
+    bg: tuple[int, int, int, int]
+    active_bg: tuple[int, int, int, int]
+    fg: tuple[int, int, int, int]
+    active_fg: tuple[int, int, int, int]
+    cursor_color: tuple[int, int, int, int]
+    border_radius: int
+
+    _focused: bool = False
+    _cursor_pos: int = 0
+    __text: str = ""
+    _position: Vec2
+    _size: Vec2
+
+    def __init__(
+            self,
+            position: tuple[int | float, int | float] | Vec2,
+            size: tuple[int | float, int | float] | Vec2,
+            bg: tuple[int, int, int, int] = ...,
+            active_bg: tuple[int, int, int, int] = ...,
+            fg: tuple[int, int, int, int] = ...,
+            active_fg: tuple[int, int, int, int] = ...,
+            cursor_color: tuple[int, int, int, int] = ...,
+            border_radius: int = -1,
+            focused: bool = False,
+    ):
+        # default arguments
+        if bg is ...:
+            bg = (60, 60, 60, 255)
+
+        if active_bg is ...:
+            active_bg = (70, 70, 70, 255)
+
+        if fg is ...:
+            fg = (200, 200, 200, 255)
+
+        if active_fg is ...:
+            active_fg = (255, 255, 255, 255)
+
+        if cursor_color is ...:
+            cursor_color = (255, 255, 255, 255)
+
+        self.bg = bg
+        self.active_bg = active_bg
+        self.fg = fg
+        self.active_fg = active_fg
+        self.cursor_color = cursor_color
+        self.border_radius = border_radius
+
+        self.position = position
+        self.size = size
+
+        super().__init__(focused)
+        Drawn.add(self)
+
+        self.__event_ids: list[int] = []
+        self.__event_ids.append(BaseGame.on_event(pg.KEYDOWN, self.on_keypress))
+        self.__event_ids.append(BaseGame.on_event(pg.MOUSEBUTTONDOWN, self.on_mouse_button_down))
+
+    @property
+    def text(self) -> str:
+        """
+        the text present in the entry
+        """
+        return self.__text
+
+    @text.setter
+    def text(self, value: str):
+        """
+        the text present in the entry
+        """
+        self.__text = value
+        self._cursor_pos = len(self.text)
+
+    @property
+    def position(self) -> Vec2:
+        """
+        The entries current position
+        """
+        return self._position
+
+    @position.setter
+    def position(self, value: tuple[int | float, int | float] | Vec2):
+        """
+        set the entries current position
+        """
+        if not issubclass(value.__class__, Vec2):
+            value = Vec2.from_cartesian(*value)
+
+        self._position = value
+
+    @property
+    def size(self) -> Vec2:
+        """
+        The entries current size
+        """
+        return self._size
+
+    @size.setter
+    def size(self, value: tuple[int | float, int | float] | Vec2):
+        """
+        set th entries current size
+        """
+        if not issubclass(value.__class__, Vec2):
+            value = Vec2.from_cartesian(*value)
+
+        self._size = value
+
+    def draw(self, surface: pg.Surface):
+        """
+        draw the entry
+        """
+        # draw background
+        pg.draw.rect(
+            surface,
+            self.active_bg if self.focused else self.bg,
+            pg.Rect(*self.position.xy, *self.size.xy),
+            0,
+            self.border_radius,
+        )
+
+        # draw text
+        text = BaseGame.font.render(self.text, True, self.active_fg if self.focused else self.fg)
+        text_rect = text.get_rect()
+
+        text_rect.center = (self.position + self.size / 2).xy
+
+        surface.blit(text, text_rect)
+
+        blink = int(str(time.time()).split(".")[-1][0]) < 5
+
+        # if focused, draw cursor
+        if self.focused and blink:
+            sample_text = BaseGame.font.render(self.text[:self._cursor_pos], True, self.fg)
+            sample_rect = sample_text.get_rect()
+
+            cursor_pos = [text_rect.x + sample_rect.size[0], self.position.y]
+            cursor_pos[1] += int(self.size.y / 10)
+
+            size = (5, self.size.y * .8)
+
+            pg.draw.rect(surface, self.cursor_color, pg.Rect(*cursor_pos, *size))
+
+    def check_collision(self, position: Vec2) -> bool:
+        """
+        check if a point collides with the entry
+        """
+        x = self.position.x <= position.x <= self.position.x + self.size.x
+        y = self.position.y <= position.y <= self.position.y + self.size.y
+
+        return x and y
+
+    def on_keypress(self, event: pg.event.Event):
+        """
+        record a keypress
+        """
+        if BaseGame.globals.focused == self:
+            # for deleting
+            match event.key:
+                case pg.K_BACKSPACE:
+                    self.__text = self.text[:(self._cursor_pos-1)] + self.text[self._cursor_pos:]
+                    self._cursor_pos -= 1
+
+                case pg.K_LEFT:
+                    if self._cursor_pos >= 0:
+                        self._cursor_pos -= 1
+
+                case pg.K_RIGHT:
+                    if self._cursor_pos < len(self.text):
+                        self._cursor_pos += 1
+
+                case _:
+                    # check if space is held
+                    mods = pg.key.get_mods()
+                    shift = mods & pg.KMOD_SHIFT
+                    ctrl = mods & pg.KMOD_CTRL
+
+                    # if control is held
+                    if ctrl:
+                        return
+
+                    # convert to character
+                    with suppress(ValueError):
+                        character = chr(event.key)
+                        if shift:
+                            character = character.upper()
+
+                        self.__text = self.text[:self._cursor_pos] + character + self.text[self._cursor_pos:]
+                        self._cursor_pos += 1
+
+    def on_mouse_button_down(self, *_trash):
+        """
+        set or remove focus
+        """
+        mouse_pos = Vec2.from_cartesian(*pg.mouse.get_pos())
+
+        if self.check_collision(mouse_pos) and BaseGame.globals.focused is None:
+            self.focused = True
+            return
+
+        if BaseGame.globals.focused == self:
+            self.focused = False
+
+    def delete(self):
+        """
+        completely remove the entry
+        """
+        for eid in self.__event_ids:
+            BaseGame.clear_on_event(eid)
+        Drawn.remove(self)
 
 
 class CircularButton(Button):
@@ -518,6 +767,10 @@ class IOBox(pg.sprite.Sprite):
 
     def __new__(cls, *args, **kwargs):
         new = super().__new__(cls)
+
+        if cls.instance is not None:
+            raise RuntimeError(f"only on instance of type \"{cls.__name__}\" can exist!")
+
         cls.instance = new
 
         return new
@@ -577,7 +830,7 @@ class IOBox(pg.sprite.Sprite):
 
         pg.draw.rect(BaseGame.lowest_layer, (60, 60, 60, 255), pg.Rect(*self.position.xy, *self.size.xy))
 
-        if self.check_collision(mouse_pos):
+        if self.check_collision(mouse_pos) and not BaseGame.stop_listen():
             c_pos = (
                 self.position.x + self.size.x / 2,
                 mouse_pos.y

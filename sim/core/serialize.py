@@ -30,6 +30,7 @@ class GateType(tp.TypedDict):
 class WireType(tp.TypedDict):
     parent: str
     target: str
+    points: list[tuple[int | float, int | float]]
 
 
 class SerializedOutput(tp.TypedDict):
@@ -63,6 +64,9 @@ def serialize_args(arguments: tuple) -> tuple:
 
 
 def serialize_all(file: str):
+    """
+    save a thing
+    """
     inputs: list[int | float] = [input.cb.position.y for input in InputsBox.instance.inputs]
     outputs: list[int | float] = [input.cb.position.y for input in OutputsBox.instance.inputs]
 
@@ -91,33 +95,34 @@ def serialize_all(file: str):
         out["wires"].append({
             "parent": pid,
             "target": tid,
+            "points": [point.xy for point in wire.set_points],
         })
-
-    print(out)
 
     with open(file, "w") as outfile:
         json.dump(out, outfile, indent=4)
 
 
-def load_from_file(file: str):
+def load_from_file(file: str, load_as_block: bool = False):
     """
     load a saved thing
     """
-    # clear current screen
-    for gate in Gates.sprites():
-        gate.delete()
-
-    for wire in Wires.sprites():
-        wire.delete()
 
     data: SerializedOutput = json.load(open(file, "r"))
 
-    # create input and output ports
-    for i_y in data["input"]:
-        InputsBox.instance.add_input(i_y)
+    if not load_as_block:
+        # clear current screen
+        for gate in Gates.sprites():
+            gate.delete()
 
-    for o_y in data["output"]:
-        OutputsBox.instance.add_input(o_y)
+        for wire in Wires.sprites():
+            wire.delete()
+
+        # create input and output ports
+        for i_y in data["input"]:
+            InputsBox.instance.add_input(i_y)
+
+        for o_y in data["output"]:
+            OutputsBox.instance.add_input(o_y)
 
     # for correctly wiring the wires
     gate_alias: dict[int, Base] = {}
@@ -185,7 +190,7 @@ def load_from_file(file: str):
 
         elif target == -2:
             target = OutputsBox.instance
-            target_node = target.inputs[pid].lb
+            target_node = target.inputs[tid].lb
 
         else:
             raise RuntimeError("invalid target node id")
@@ -196,9 +201,15 @@ def load_from_file(file: str):
             parent=parent_node,
         )
 
+        # add all points to line
+        for point in wire["points"][1:-1]:
+            new_line.add(Vec2.from_cartesian(*point))
+
+        # add target node
         new_line.add(target_node.position)
         new_line.finish()
         new_line.set_target(target_node)
 
+        # notify parents about the newly created child that belongs to them
         parent_node.add_connection(new_line)
         target_node.add_connection(new_line)
