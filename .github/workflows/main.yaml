@@ -1,0 +1,8 @@
+uses: piotrpawlaczek/python-blacken@release/stable
+
+
+with:
+  line-length: '120'
+  path: '.'
+  sanity-check: 'safe'
+  only-check: 'no'
