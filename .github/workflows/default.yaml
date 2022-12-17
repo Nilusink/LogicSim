@@ -1,0 +1,11 @@
+on: push
+
+jobs:
+  check-with-black:
+    - name: Python Blacken
+      uses: piotrpawlaczek/python-blacken@v22.3.0
+      with:
+        line-length: '120'
+        path: '.'
+        sanity-check: 'safe'
+        only-check: 'no'
