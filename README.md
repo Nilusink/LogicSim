@@ -21,4 +21,4 @@ If you have installed python, simply run
 ```bash
 python3.10 main.py
 ```
-in the project directory root.
+in the project root directory.
