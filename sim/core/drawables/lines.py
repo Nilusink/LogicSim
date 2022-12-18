@@ -30,6 +30,10 @@ def aa_line(surface: pg.Surface, color: tuple[float, float, float], start_pos: t
 
 class Line(pg.sprite.Sprite):
     set_points: list[Vec2] = ...
+    hover_thickness: int = 10
+    thickness: int = 5
+
+    _max_curve_distance: int = 20
     _finished: bool = False
     _active: bool = False
 
@@ -72,6 +76,45 @@ class Line(pg.sprite.Sprite):
         if self.target is not None:
             self.target.update_input(value)
 
+    def check_collision(self, position: Vec2, collision_range: int = 10, accuracy: int = 100) -> bool:
+        """
+        checks if the given point is within the lines hit-box
+        """
+        return False
+
+        # first check if the point is even in the box of the line
+        all_x = [pnt.x for pnt in self.set_points]
+        all_y = [pnt.y for pnt in self.set_points]
+
+        min_pnt = Vec2.from_cartesian(min(all_x), min(all_y))
+        max_pnt = Vec2.from_cartesian(max(all_x), max(all_y))
+
+        if not (
+                min_pnt.x <= position.x <= max_pnt.x,
+                min_pnt.y <= position.y <= max_pnt.y,
+        ):
+            return False
+
+        # more accurately check
+        for i in range(len(self.set_points) - 1):
+            pnt1 = self.set_points[i]
+            pnt2 = self.set_points[i+1]
+
+            delta = pnt2 - pnt1
+
+            # for each line, dissect it into `accuracy` amount of points and check at each point if the position is
+            # within `collision_range` pixels
+            for j in range(accuracy):
+                perc = j / accuracy
+
+                probe_point = pnt1 + delta * perc
+                distance = position - probe_point
+
+                if distance.length <= collision_range:
+                    return True
+
+        return False
+
     def set_target(self, target):
         """
         set the target node
@@ -94,13 +137,17 @@ class Line(pg.sprite.Sprite):
         if pg.key.get_pressed()[pg.K_ESCAPE] and not self._finished:
             self.cancel()
 
+        mouse_pos = pg.mouse.get_pos()
+        mouse_pos = Vec2.from_cartesian(*mouse_pos)
+
+        hover = False
+        if self._finished:
+            hover = self.check_collision(mouse_pos) and BaseGame.globals.drawing_line is None
+
         calc_points = self.set_points.copy()
 
         if not self._finished:
             # if shift is held, draw a straight line
-            mouse_pos = pg.mouse.get_pos()
-            mouse_pos = Vec2.from_cartesian(*mouse_pos)
-
             if pg.key.get_mods() & pg.KMOD_SHIFT:
                 last_point = calc_points[-1]
                 delta = last_point - mouse_pos
@@ -116,42 +163,54 @@ class Line(pg.sprite.Sprite):
 
         # draw lines
         for i in range(len(calc_points) - 2):
+            # calculate the curve offset points
             de1 = calc_points[i+1] - calc_points[i]
             de2 = calc_points[i+2] - calc_points[i+1]
 
-            p1 = calc_points[i] + de1 * .8
-            p2 = calc_points[i+1] + de2 * .2
+            off1 = de1 * .8
+            off11 = (de1.length - self._max_curve_distance)
+            off2 = de2 * .2
+
+            # either 20% or a max of `self._max_curve_distance`
+            off1.length = off1.length if off11 < off1.length else off11
+            off2.length = off2.length if self._max_curve_distance > off2.length else self._max_curve_distance
+
+            p1 = calc_points[i] + off1
+            p2 = calc_points[i+1] + off2
 
             # create curves for the edges
-            curve = create_bezier(p1, p2, calc_points[i+1])
+            curve = create_bezier(p1, p2, calc_points[i+1], resolution=10)
             for j in range(len(curve) - 1):
                 aa_line(
                     BaseGame.lowest_layer,
                     (255, 0, 0) if self.active else (50, 0, 0),
                     curve[j].xy, curve[j+1].xy,
-                    width=3,
+                    width=self.hover_thickness if hover else self.thickness,
                 )
 
             # draw straights
             aa_line(
                 BaseGame.lowest_layer,
                 color=(255, 0, 0) if self.active else (50, 0, 0),
-                start_pos=(calc_points[i+1]-de1 * .8).xy if i != 0 else calc_points[0].xy,
+                start_pos=(calc_points[i+1]-off1).xy if i != 0 else calc_points[0].xy,
                 end_pos=p1.xy,
-                width=3,
+                width=self.hover_thickness if hover else self.thickness,
             )
 
         if len(calc_points) > 1:
             de2 = calc_points[-1] - calc_points[-2]
 
-            p2 = calc_points[-2] + de2 * .2
+            off = de2 * .2
+            off.length = off.length if off.length < self._max_curve_distance else self._max_curve_distance
+
+            p2 = calc_points[-2] + off
 
             aa_line(
                 BaseGame.lowest_layer,
                 color=(255, 0, 0) if self.active else (50, 0, 0),
                 start_pos=p2.xy if len(calc_points) != 2 else calc_points[0].xy,
                 end_pos=calc_points[-1].xy,
-                width=3,
+                width=self.hover_thickness if hover else self.thickness,
             )
 
     def add_current_mouse(self, event: pg.event.Event):
@@ -172,6 +231,9 @@ class Line(pg.sprite.Sprite):
 
             else:
                 self.add(mouse_pos)
+
+        elif event.button == 3:
+            self.delete()
 
     def add(self, point: Vec2):
         """
