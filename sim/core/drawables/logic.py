@@ -229,7 +229,7 @@ class Base(DraggablePoint):
         return self._logic_func(*args, **kwargs)
 
     def __repr__(self) -> str:
-        return f"<Block {self.id}>"
+        return f"<Block {self.__class__.__name__}, id={self.id}>"
 
 
 class And(Base):
@@ -289,7 +289,7 @@ class CustomBlock(Base):
                     radius=self.port_size,
                     color=(100, 100, 100, 255),
                     parent=self,
-                    type="o",
+                    type="co",
                     id=i,
                     hidden=True,
                     update_parent=False,
@@ -307,7 +307,7 @@ class CustomBlock(Base):
                     radius=self.port_size,
                     color=(100, 100, 100, 255),
                     parent=self,
-                    type="i",
+                    type="ci",
                     id=i,
                     hidden=True,
                     update_parent=False,

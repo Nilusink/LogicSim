@@ -2,12 +2,13 @@
 main.py
 13. December 2022
 
-main file game
+main game file
 
 Author:
 Nilusink
 """
 from traceback import format_exc
+import pygame as pg
 import base64
 import os
 
@@ -96,28 +97,22 @@ def main():
 
             new_block.start_follow()
 
-            for button in blocks_buttons:
-                button.delete()
-
-            i = 1
-            for file in os.listdir("./blocks"):
-                i += 1
-                blocks_buttons.append(
-                    Button(
-                        (201 * i, 1000),
-                        (200, 80),
-                        text=".".join(file.split(".")[:-1]),
-                        on_click=lambda *_e, f=f"./blocks/{file}": load_prevoius(f),
-                        bg=(100, 200, 100, 255),
-                        active_bg=(150, 200, 150, 255),
-                    )
+            blocks_buttons.append(
+                Button(
+                    (201 * (len(blocks_buttons) + 2), 1000),
+                    (200, 80),
+                    text=block_name,
+                    on_click=lambda *_e, f=f"./blocks/{block_name}.json": load_previous(f),
+                    bg=(100, 200, 100, 255),
+                    active_bg=(150, 200, 150, 255),
                 )
+            )
 
         except Exception as e:
             print("error:", format_exc())
             raise e
 
-    def load_prevoius(file: str):
+    def load_previous(file: str):
         if not os.path.exists(file):
             return
 
@@ -145,6 +140,13 @@ def main():
         active_bg=(150, 150, 200, 255),
     )
 
+    Button(
+        (201, 0),
+        (200, 80),
+        text="Exit",
+        on_click=lambda *_e: pg.quit(),
+    )
+
     i = 1
     blocks_buttons: list[Button] = []
     for file in os.listdir("./blocks"):
@@ -153,7 +155,7 @@ def main():
             (201 * i, 1000),
             (200, 80),
             text=".".join(file.split(".")[:-1]),
-            on_click=lambda *_e, f=f"./blocks/{file}": load_prevoius(f),
+            on_click=lambda *_e, f=f"./blocks/{file}": load_previous(f),
             bg=(100, 200, 100, 255),
             active_bg=(150, 200, 150, 255),
         ))

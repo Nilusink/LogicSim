@@ -196,7 +196,7 @@ class LinePoint(Point):
 
         for line in self._connected_lines:
             with suppress(IndexError):
-                if self._type == "o":
+                if "o" in self._type:
                     line.set_points[0] = self.position
                     continue
 
@@ -214,7 +214,7 @@ class LinePoint(Point):
 
             if self.check_collision(mouse_pos):
                 if BaseGame.globals.drawing_line is not None and \
-                        self._type == "i" and len(self._connected_lines) == 0:
+                        "i" in self._type and len(self._connected_lines) == 0:
                     line: Line = BaseGame.globals.drawing_line
 
                     if not line.set_points[0] == self.position:
@@ -227,7 +227,7 @@ class LinePoint(Point):
                         BaseGame.globals.drawing_line = None
                         return
 
-                if self._type == "o" and BaseGame.globals.drawing_line is None:
+                if "o" in self._type and BaseGame.globals.drawing_line is None:
                     line = Line(self.position, self)
                     BaseGame.globals.drawing_line = line
                     self._connected_lines.append(line)
@@ -236,7 +236,7 @@ class LinePoint(Point):
         """
         update a point that is an input
         """
-        if not self._type == "i":
+        if "i" not in self._type:
             return
             # raise RuntimeError("can only update the input values of an input gate")
 
@@ -249,7 +249,7 @@ class LinePoint(Point):
         """
         update all connected points (gates)
         """
-        if not self._type == "o":
+        if "o" not in self._type:
             return
             # raise RuntimeError("can only update from an output")
 

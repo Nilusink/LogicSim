@@ -85,6 +85,12 @@ class Line(pg.sprite.Sprite):
         """
         draw the current line
         """
+        if self.parent is not None and "c" in self.parent.id:
+            return
+
+        if self.target is not None and "c" in self.target.id:
+            return
+
         if pg.key.get_pressed()[pg.K_ESCAPE] and not self._finished:
             self.cancel()
 

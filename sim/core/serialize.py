@@ -12,7 +12,7 @@ import pickle
 import json
 
 # local imports
-from .drawables.interactions import InputsBox, LinePoint, OutputsBox
+from .drawables.interactions import InputsBox, IOBox, LinePoint, OutputsBox
 from .drawables.logic import And, Not, Base, CustomBlock
 from .basegame.groups import Gates, Wires
 from ..additional.classes import Vec2
@@ -67,8 +67,8 @@ def serialize_all(file: str):
     """
     save a thing
     """
-    inputs: list[int | float] = [input.cb.position.y for input in InputsBox.instance.inputs]
-    outputs: list[int | float] = [input.cb.position.y for input in OutputsBox.instance.inputs]
+    inputs: list[int | float] = [input_p.cb.position.y for input_p in InputsBox.instance.inputs]
+    outputs: list[int | float] = [input_p.cb.position.y for input_p in OutputsBox.instance.inputs]
 
     out: SerializedOutput = {
         "input": inputs,
@@ -81,13 +81,16 @@ def serialize_all(file: str):
     wires: list[Line] = Wires.sprites()
 
     for gate in gates:
-        out["gates"].append({
-            "position": gate.position.xy,
-            "args": serialize_args(gate.initial_args),
-            "type": gate.__class__.__name__,
-            "id": gate.id,
-        })
+        g_type = gate.__class__
 
+        out["gates"].append({
+                "position": gate.position.xy,
+                "args": serialize_args(gate.initial_args),
+                "type": g_type.__name__,
+                "id": gate.id,
+            })
+
+    # save all wires and points
     for wire in wires:
         pid: str = wire.parent.id
         tid: str = wire.target.id
@@ -109,7 +112,7 @@ def load_from_file(file: str, load_as_block: bool = False):
 
     data: SerializedOutput = json.load(open(file, "r"))
 
-    new_block : CustomBlock = ...
+    new_block: CustomBlock = ...
     if load_as_block:
         new_block = CustomBlock(
             (0, 0),
@@ -136,7 +139,7 @@ def load_from_file(file: str, load_as_block: bool = False):
             OutputsBox.instance.add_input(o_y)
 
     # for correctly wiring the wires
-    gate_alias: dict[int, Base] = {}
+    gate_alias: dict[int, Base | CustomBlock] = {}
 
     # create gates
     for gate in data["gates"]:
@@ -146,6 +149,9 @@ def load_from_file(file: str, load_as_block: bool = False):
 
             case "Not":
                 new_gate = Not(*gate["args"])
+
+            case "CustomBlock":
+                new_gate = CustomBlock(*gate["args"])
 
             case _:
                 continue
@@ -157,6 +163,19 @@ def load_from_file(file: str, load_as_block: bool = False):
     for wire in data["wires"]:
         pid = wire["parent"]
         tid = wire["target"]
+
+        parent_is_custom = False
+        target_is_custom = False
+
+        if "c" in pid:
+            mi = pid.index("c")
+            pid = pid[:mi] + pid[mi + 1:]
+            parent_is_custom = True
+
+        if "c" in tid:
+            mi = tid.index("c")
+            tid = tid[:mi] + tid[mi + 1:]
+            target_is_custom = True
 
         # check if the point is valid
         if "i" in pid:
@@ -176,43 +195,57 @@ def load_from_file(file: str, load_as_block: bool = False):
         parent_node: LinePoint
         target_node: LinePoint
 
-        # get the parent node
-        if parent >= 0:
-            parent = gate_alias[parent]
-            parent_node = parent.output_points[pid]
+        parent: int
+        target: int
 
-        elif parent == -1:
-            if load_as_block:
-                parent_node = new_block.input_output_points[pid]
+        if not parent_is_custom:
+            # get the parent node
+            if parent >= 0:
+                parent: Base = gate_alias[parent]
+                parent_node = parent.output_points[pid]
 
-            else:
-                parent = InputsBox.instance
-                parent_node = parent.inputs[pid].lb
+            elif parent == -1:
+                if load_as_block:
+                    parent_node = new_block.input_output_points[pid]
 
-        elif parent == -2:
-            raise RuntimeError("parent cannot be output node")
+                else:
+                    parent: IOBox = InputsBox.instance
+                    parent_node = parent.inputs[pid].lb
 
-        else:
-            raise RuntimeError("invalid parent node id")
-
-        # get the target node
-        if target >= 0:
-            target = gate_alias[target]
-            target_node = target.input_points[tid]
-
-        elif target == -1:
-            raise RuntimeError("target cannot be input node")
-
-        elif target == -2:
-            if load_as_block:
-                target_node = new_block.output_input_points[tid]
+            elif parent == -2:
+                raise RuntimeError("parent cannot be output node")
 
             else:
-                target = OutputsBox.instance
-                target_node = target.inputs[tid].lb
+                raise RuntimeError("invalid parent node id")
+
+        # if custom gate, choose correct ports
+        else:
+            parent: CustomBlock = gate_alias[parent]
+            parent_node = parent.input_output_points[pid]
+
+        if not target_is_custom:
+            # get the target node
+            if target >= 0:
+                target: Base = gate_alias[target]
+                target_node = target.input_points[tid]
+
+            elif target == -1:
+                raise RuntimeError("target cannot be input node")
+
+            elif target == -2:
+                if load_as_block:
+                    target_node = new_block.output_input_points[tid]
+
+                else:
+                    target: IOBox = OutputsBox.instance
+                    target_node = target.inputs[tid].lb
+
+            else:
+                raise RuntimeError("invalid target node id")
 
         else:
-            raise RuntimeError("invalid target node id")
+            target: CustomBlock = gate_alias[target]
+            target_node = target.output_input_points[tid]
 
         # create new line
         new_line = Line(
