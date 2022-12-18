@@ -16,7 +16,7 @@ git clone https://github.com/Nilusink/LogicSim
 
 ## Execution
 For you to be able to run this program, you need to have `python3.10` or newer installed.
-(Download Python](https://www.python.org/downloads/))
+([Download Python](https://www.python.org/downloads/))
 
 If you have installed python, simply run
 ```bash
