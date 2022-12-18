@@ -67,7 +67,12 @@ class _Gates(pg.sprite.Group):
         return max([sprite.id for sprite in self.sprites()]) + 1
 
 
+class _Wires(_Gates):
+    ...
+
+
 # Instances
 Drawn = _Drawn()
 Gates = _Gates()
+Wires = _Wires()
 Updated = _Updated()

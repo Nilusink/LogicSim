@@ -11,9 +11,9 @@ import typing as tp
 from contextlib import suppress
 
 import pygame as pg
-from ..basegame.groups import Drawn
 from ..basegame.game import BaseGame
 from ...additional.classes import Vec2
+from ..basegame.groups import Drawn, Wires
 from ...additional.functions import create_bezier
 
 
@@ -43,9 +43,15 @@ class Line(pg.sprite.Sprite):
         self.set_points = [start_pos]
 
         super().__init__()
+        self._id = Wires.yield_unique_id()
+        Wires.add(self)
         Drawn.add(self)
 
         self.__hook_id = BaseGame.on_event(pg.MOUSEBUTTONDOWN, self.add_current_mouse)
+
+    @property
+    def id(self) -> int:
+        return self._id
 
     @property
     def parent(self):
@@ -72,10 +78,19 @@ class Line(pg.sprite.Sprite):
         """
         self._target = target
 
+    def set_parent(self, parent):
+        self._parent = parent
+
     def draw(self, _surface: pg.Surface):
         """
         draw the current line
         """
+        if self.parent is not None and "c" in self.parent.id:
+            return
+
+        if self.target is not None and "c" in self.target.id:
+            return
+
         if pg.key.get_pressed()[pg.K_ESCAPE] and not self._finished:
             self.cancel()
 
@@ -178,6 +193,12 @@ class Line(pg.sprite.Sprite):
         self.finish()
         del self
 
+    def delete(self):
+        """
+        does the same as cancel, for compatability
+        """
+        self.cancel()
+
     def finish(self):
         """
         stop drawing the line
@@ -185,3 +206,6 @@ class Line(pg.sprite.Sprite):
         with suppress(KeyError):
             BaseGame.clear_on_event(self.__hook_id)
         self._finished = True
+
+    def __repr__(self) -> str:
+        return f"<Line {self.id}>"

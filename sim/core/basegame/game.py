@@ -39,6 +39,8 @@ class _BaseGame:
         window_size = DEFAULT_WINDOW_SIZE
         self.globals = BetterDict({
             "drawing_line": None,
+            "rb_menu_open": False,
+            "focused": None,
         })
         self._in_loop = []
         self._hooks = {}
@@ -55,7 +57,23 @@ class _BaseGame:
         self.font = pg.font.SysFont(None, 24)
         pg.display.set_caption("Digital Logic Sim")
 
-        # self.gate_font = pg.font.Font("freesansbold.tff", 32)
+    def stop_listen(self, ignore: list[str] = ...) -> bool:
+        """
+        tells sprites to stop listening to mouse or keyboard inputs depending on some parameters
+        """
+        if ignore is ...:
+            ignore = []
+
+        params = ("rb_menu_open",)
+
+        for param in params:
+            if self.globals[param] and param not in ignore:
+                return True
+
+        if self.globals["focused"] is not None and "focused" not in ignore:
+            return True
+
+        return False
 
     def update(self):
         """

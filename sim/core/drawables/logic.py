@@ -11,11 +11,10 @@ from contextlib import suppress
 
 import pygame as pg
 import typing as tp
-from random import randint
 
-from ..basegame.groups import Gates, Updated
 from ..basegame.game import BaseGame
 from ...additional.classes import Vec2
+from ..basegame.groups import Gates, Updated, Drawn
 from .interactions import LinePoint, DraggablePoint
 
 
@@ -27,8 +26,25 @@ class Base(DraggablePoint):
     port_size: float = 10
     port_states: list[bool]
 
-    def __init__(self, position: Vec2, name: str, logic_func: tp.Callable, inputs: int, outputs: int):
+    _input_points: list[LinePoint]
+    _output_points: list[LinePoint]
+
+    __initial_args: tuple[tuple[float | int, float | int] | Vec2, str, tp.Callable, int, int]
+
+    def __init__(
+            self,
+            position: tuple[float | int, float | int] | Vec2,
+            name: str,
+            logic_func: tp.Callable,
+            inputs: int,
+            outputs: int
+    ):
         self.__id = Gates.yield_unique_id()
+
+        if not issubclass(type(position), Vec2):
+            position = Vec2.from_cartesian(*position)
+
+        self.__initial_args = (position.copy(), name, logic_func, inputs, outputs)
 
         self.port_states = [False] * inputs
 
@@ -46,9 +62,13 @@ class Base(DraggablePoint):
         # Updated.add(self)
         Gates.add(self)
 
+        # setup buttons and stuff
+        self._port_setup()
+
+    def _port_setup(self):
         # setup ports
-        for i in range(inputs):
-            off = self._size.y / (inputs * 2)
+        for i in range(self._inputs):
+            off = self._size.y / (self._inputs * 2)
             z = self.position.y - self._size.y / 2
             y = z + off + off * i * 2
 
@@ -63,8 +83,8 @@ class Base(DraggablePoint):
                 )
             )
 
-        for i in range(outputs):
-            off = self._size.y / (outputs * 2)
+        for i in range(self._outputs):
+            off = self._size.y / (self._outputs * 2)
             z = self.position.y - self._size.y / 2
             y = z + off + off * i * 2
 
@@ -80,11 +100,23 @@ class Base(DraggablePoint):
             )
 
     @property
+    def initial_args(self) -> tuple[tuple[float | int, float | int] | Vec2, str, tp.Callable, int, int]:
+        return self.__initial_args
+
+    @property
     def id(self) -> int:
         """
         the gates unique id
         """
         return self.__id
+
+    @property
+    def input_points(self) -> list[LinePoint]:
+        return self._input_points
+
+    @property
+    def output_points(self) -> list[LinePoint]:
+        return self._output_points
 
     def draw(self, surface: pg.Surface):
         """
@@ -116,8 +148,9 @@ class Base(DraggablePoint):
         result: tuple[bool] | bool = self._logic_func(*self.port_states)
 
         if issubclass(type(result), tuple):
-            for i in range(len(result)):
-                self._output_points[i].update_connections(result[i])
+            with suppress(IndexError):
+                for i in range(len(result)):
+                    self._output_points[i].update_connections(result[i])
 
             return
 
@@ -171,15 +204,167 @@ class Base(DraggablePoint):
         """
         self.port_states[input_id] = value
 
+    def delete(self):
+        """
+        removes the gate
+        """
+        # delete connected wires
+        for point in self._output_points:
+            for line in point.connected_lines:
+                line.delete()
+            point.delete()
+
+        for point in self._input_points:
+            for line in point.connected_lines:
+                line.delete()
+            point.delete()
+
+        # remove self
+        Updated.remove(self)
+        Drawn.remove(self)
+
+        del self
+
     def __call__(self, *args, **kwargs):
         return self._logic_func(*args, **kwargs)
+
+    def __repr__(self) -> str:
+        return f"<Block {self.__class__.__name__}, id={self.id}>"
 
 
 class And(Base):
     def __init__(self, position: Vec2):
-        super().__init__(position, "And", lambda x, y: x and y, 2, 1)
+        self.__initial_args: tuple[Vec2] = (position.copy(),)
+        super().__init__(position, "And", self.logic_func, 2, 1)
+
+    @staticmethod
+    def logic_func(x: bool, y: bool) -> bool:
+        return x and y
+
+    @property
+    def initial_args(self) -> tuple[Vec2]:
+        return self.__initial_args
 
 
 class Not(Base):
     def __init__(self, position: Vec2):
-        super().__init__(position, "Not", lambda x: not x, 1, 1)
+        self.__initial_args: tuple[Vec2] = (position.copy(),)
+        super().__init__(position, "Not", self.logic_func, 1, 1)
+
+    @staticmethod
+    def logic_func(x: bool) -> bool:
+        return not x
+
+    @property
+    def initial_args(self) -> tuple[Vec2]:
+        return self.__initial_args
+
+
+class CustomBlock(Base):
+    _input_output_points: list[LinePoint]
+    _output_input_points: list[LinePoint]
+
+    def __init__(
+            self,
+            position: tuple[float | int, float | int] | Vec2,
+            name: str,
+            logic_func: tp.Callable,
+            inputs: int,
+            outputs: int
+    ):
+        self._input_output_points = []
+        self._output_input_points = []
+
+        super().__init__(position, name, logic_func, inputs, outputs)
+
+        # setup ports
+        for i in range(self._inputs):
+            off = self._size.y / (self._inputs * 2)
+            z = self.position.y - self._size.y / 2
+            y = z + off + off * i * 2
+
+            self._input_output_points.append(
+                LinePoint(
+                    Vec2.from_cartesian(self.position.x - self._size.x / 2, y),
+                    radius=self.port_size,
+                    color=(100, 100, 100, 255),
+                    parent=self,
+                    type="co",
+                    id=i,
+                    hidden=True,
+                    update_parent=False,
+                )
+            )
+
+        for i in range(self._outputs):
+            off = self._size.y / (self._outputs * 2)
+            z = self.position.y - self._size.y / 2
+            y = z + off + off * i * 2
+
+            self._output_input_points.append(
+                LinePoint(
+                    Vec2.from_cartesian(self.position.x + self._size.x / 2, y),
+                    radius=self.port_size,
+                    color=(100, 100, 100, 255),
+                    parent=self,
+                    type="ci",
+                    id=i,
+                    hidden=True,
+                    update_parent=False,
+                )
+            )
+
+    def update_input(self, input_id: int, value: bool):
+        """
+        update the logic gate
+        """
+        self.port_states[input_id] = value
+        self._input_output_points[input_id].update_connections(value)
+
+    def update_logic(self, *_trash):
+        with suppress(IndexError):
+            for i in range(self._outputs):
+                self._output_points[i].update_connections(self._output_input_points[i].state)
+
+    @property
+    def input_output_points(self) -> list[LinePoint]:
+        return self._input_output_points.copy()
+
+    @property
+    def output_input_points(self) -> list[LinePoint]:
+        return self._output_input_points.copy()
+
+    @property
+    def position(self) -> Vec2:
+        """
+        the points current position
+        """
+        return self._pos.copy()
+
+    @position.setter
+    def position(self, pos: tuple[float | int, float | int] | Vec2):
+        """
+        set the points current position
+        """
+        if not issubclass(type(pos), Vec2):
+            pos = Vec2.from_cartesian(*pos)
+
+        self._pos = pos.copy()
+
+        # update input points
+        for i in range(len(self._input_points)):
+            off = self._size.y / (self._inputs * 2)
+            z = self.position.y - self._size.y / 2
+            y = z + off + off * i * 2
+
+            self._input_points[i].position = Vec2.from_cartesian(self.position.x - self._size.x / 2, y)
+            self._input_output_points[i].position = self._input_points[i].position
+
+        # update output points
+        for i in range(len(self._output_points)):
+            off = self._size.y / (self._outputs * 2)
+            z = self.position.y - self._size.y / 2
+            y = z + off + off * i * 2
+
+            self._output_points[i].position = Vec2.from_cartesian(self.position.x + self._size.x / 2, y)
+            self._output_input_points[i].position = self._output_points[i].position
