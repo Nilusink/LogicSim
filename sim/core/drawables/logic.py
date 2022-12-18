@@ -65,6 +65,10 @@ class Base(DraggablePoint):
         # setup buttons and stuff
         self._port_setup()
 
+    @property
+    def name(self) -> str:
+        return self._name
+
     def _port_setup(self):
         # setup ports
         for i in range(self._inputs):

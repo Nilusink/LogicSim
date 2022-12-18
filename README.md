@@ -2,8 +2,7 @@
 ![top language - Github](https://img.shields.io/github/languages/top/Nilusink/LogicSim?style=for-the-badge)
 ![licence - Github](https://img.shields.io/github/license/Nilusink/LogicSim?style=for-the-badge)
 # LogicSim
-![img.png](./screenshots/adder.png)
-
+![adder](./screenshots/adder.png)
 Heavily inspired by Sebastian Lagues [Digital Logic Sim](https://sebastian.itch.io/digital-logic-sim),
 this simulator is supposed to provide a simple interface for understanding digital logic,
 learning, or even prototyping.
