@@ -8,8 +8,8 @@ Author:
 Nilusink
 """
 from traceback import format_exc
+from random import  randint
 import pygame as pg
-import base64
 import os
 
 from sim.core.drawables.interactions import InputsBox, OutputsBox
@@ -47,7 +47,7 @@ def main():
     def generate_block(*_trash):
         try:
             block_name = name.text
-            name.text = f"Block {base64.b64encode(os.urandom(3)).decode()}"
+            name.text = f"Block {randint(100_000, 999_999)}"
 
             inp = inputs.inputs
             out = outputs.inputs
@@ -112,11 +112,14 @@ def main():
             print("error:", format_exc())
             raise e
 
-    def load_previous(file: str):
+    def load_previous(file: str, load_as_block: bool = False):
+
         if not os.path.exists(file):
             return
 
-        load_from_file(file, True)
+        load_from_file(file, load_as_block)
+        if not load_as_block:
+            name.text = ".".join(file.split("/")[-1].split("\\")[-1].split(".")[:-1])
 
     Button(
         (0, 1000),
@@ -167,7 +170,7 @@ def main():
         active_bg=(70, 70, 70, 230),
         border_radius=20,
     )
-    name.text = f"Block {base64.b64encode(os.urandom(3)).decode()}"
+    name.text = f"Block {randint(100_000, 999_999)}"
 
     while True:
         BaseGame.update()
