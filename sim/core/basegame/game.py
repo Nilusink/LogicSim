@@ -41,6 +41,8 @@ class _BaseGame:
             "drawing_line": None,
             "rb_menu_open": False,
             "focused": None,
+            "load_file_func": lambda *_trash: ...,
+            "name_entry": ...,
         })
         self._in_loop = []
         self._hooks = {}

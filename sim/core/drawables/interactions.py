@@ -580,11 +580,12 @@ class Entry(Focusable):
             # for deleting
             match event.key:
                 case pg.K_BACKSPACE:
-                    self.__text = self.text[:(self._cursor_pos-1)] + self.text[self._cursor_pos:]
-                    self._cursor_pos -= 1
+                    if self._cursor_pos > 0:
+                        self.__text = self.text[:(self._cursor_pos-1)] + self.text[self._cursor_pos:]
+                        self._cursor_pos -= 1
 
                 case pg.K_LEFT:
-                    if self._cursor_pos >= 0:
+                    if self._cursor_pos > 0:
                         self._cursor_pos -= 1
 
                 case pg.K_RIGHT:

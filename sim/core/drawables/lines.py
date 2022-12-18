@@ -31,7 +31,7 @@ def aa_line(surface: pg.Surface, color: tuple[float, float, float], start_pos: t
 class Line(pg.sprite.Sprite):
     set_points: list[Vec2] = ...
     hover_thickness: int = 10
-    thickness: int = 5
+    thickness: int = 3
 
     _max_curve_distance: int = 20
     _finished: bool = False
@@ -76,7 +76,7 @@ class Line(pg.sprite.Sprite):
         if self.target is not None:
             self.target.update_input(value)
 
-    def check_collision(self, position: Vec2, collision_range: int = 10, accuracy: int = 100) -> bool:
+    def check_collision(self, _position: Vec2, _collision_range: int = 10, _accuracy: int = 100) -> bool:
         """
         checks if the given point is within the lines hit-box
         """
@@ -143,6 +143,9 @@ class Line(pg.sprite.Sprite):
         hover = False
         if self._finished:
             hover = self.check_collision(mouse_pos) and BaseGame.globals.drawing_line is None
+
+        if hover and pg.key.get_pressed()[pg.K_DELETE]:
+            self.delete()
 
         calc_points = self.set_points.copy()
 
