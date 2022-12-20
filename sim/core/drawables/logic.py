@@ -65,9 +65,7 @@ class Base(DraggablePoint):
         # setup buttons and stuff
         self._port_setup()
 
-    @property
-    def name(self) -> str:
-        return self._name
+        self.__event_id = BaseGame.on_event(pg.MOUSEBUTTONDOWN, self.on_mouse_down)
 
     def _port_setup(self):
         # setup ports
@@ -104,6 +102,10 @@ class Base(DraggablePoint):
             )
 
     @property
+    def name(self) -> str:
+        return self._name
+
+    @property
     def initial_args(self) -> tuple[tuple[float | int, float | int] | Vec2, str, tp.Callable, int, int]:
         return self.__initial_args
 
@@ -127,6 +129,13 @@ class Base(DraggablePoint):
         draws the gate
         """
         self.update_logic()
+
+        mouse_pos = Vec2.from_cartesian(*pg.mouse.get_pos())
+        hover = self.check_collision(mouse_pos) and not BaseGame.stop_listen()
+
+        if hover and pg.key.get_pressed()[pg.K_DELETE]:
+            self.delete()
+            return
 
         p0x = self.position.x - self._size.x / 2
         p0y = self.position.y - self._size.y / 2
@@ -168,6 +177,21 @@ class Base(DraggablePoint):
         y = self.position.y - self._size.y / 2 <= point.y <= self.position.y + self._size.y / 2
 
         return x and y
+
+    def on_mouse_down(self, event: pg.event.Event):
+        """
+
+        """
+        mouse_pos = Vec2.from_cartesian(*pg.mouse.get_pos())
+        hover = self.check_collision(mouse_pos) and not BaseGame.stop_listen()
+
+        if hover:
+            if event.button == 2:
+                with suppress(FileNotFoundError):
+                    BaseGame.globals.load_file_func(f"./blocks/{self.name}.json")
+
+                    if BaseGame.globals.name_entry is not ...:
+                        BaseGame.globals.name_entry.text = self.name
 
     @property
     def position(self) -> Vec2:
@@ -272,7 +296,7 @@ class CustomBlock(Base):
             self,
             position: tuple[float | int, float | int] | Vec2,
             name: str,
-            logic_func: tp.Callable,
+            logic_func: tp.Union[tp.Callable, None],
             inputs: int,
             outputs: int
     ):

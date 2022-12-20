@@ -8,7 +8,7 @@ Author:
 Nilusink
 """
 from traceback import format_exc
-from random import  randint
+from random import randint
 import pygame as pg
 import os
 
@@ -112,7 +112,7 @@ def main():
             print("error:", format_exc())
             raise e
 
-    def load_previous(file: str, load_as_block: bool = False):
+    def load_previous(file: str, load_as_block: bool = True):
 
         if not os.path.exists(file):
             return
@@ -171,6 +171,8 @@ def main():
         border_radius=20,
     )
     name.text = f"Block {randint(100_000, 999_999)}"
+
+    BaseGame.globals.name_entry = name
 
     while True:
         BaseGame.update()

@@ -330,9 +330,10 @@ class Button(pg.sprite.Sprite):
         """
         called by an event, executes the on_click function
         """
-        if self.check_collision(Vec2.from_cartesian(*pg.mouse.get_pos())):
-            if self._on_click is not ... and not BaseGame.stop_listen():
-                self._on_click(event)
+        if event.button in (1, 3):
+            if self.check_collision(Vec2.from_cartesian(*pg.mouse.get_pos())):
+                if self._on_click is not ... and not BaseGame.stop_listen():
+                    self._on_click(event)
 
     def check_collision(self, point: Vec2) -> bool:
         """
@@ -580,11 +581,12 @@ class Entry(Focusable):
             # for deleting
             match event.key:
                 case pg.K_BACKSPACE:
-                    self.__text = self.text[:(self._cursor_pos-1)] + self.text[self._cursor_pos:]
-                    self._cursor_pos -= 1
+                    if self._cursor_pos > 0:
+                        self.__text = self.text[:(self._cursor_pos-1)] + self.text[self._cursor_pos:]
+                        self._cursor_pos -= 1
 
                 case pg.K_LEFT:
-                    if self._cursor_pos >= 0:
+                    if self._cursor_pos > 0:
                         self._cursor_pos -= 1
 
                 case pg.K_RIGHT:

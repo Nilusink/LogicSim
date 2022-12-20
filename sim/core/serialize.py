@@ -13,9 +13,10 @@ import json
 
 # local imports
 from .drawables.interactions import InputsBox, IOBox, LinePoint, OutputsBox
-from .drawables.logic import And, Not, Base, CustomBlock
+from .drawables.logic import And, Not, CustomBlock
 from .basegame.groups import Gates, Wires
 from ..additional.classes import Vec2
+from .basegame.game import BaseGame
 from .drawables.lines import Line
 from .drawables.logic import Base
 
@@ -92,8 +93,12 @@ def serialize_all(file: str):
 
     # save all wires and points
     for wire in wires:
-        pid: str = wire.parent.id
-        tid: str = wire.target.id
+        try:
+            pid: str = wire.parent.id
+            tid: str = wire.target.id
+
+        except AttributeError:  # if an AttributeError occurs, either the parent or the target are not set
+            continue
 
         out["wires"].append({
             "parent": pid,
@@ -266,3 +271,6 @@ def load_from_file(file: str, load_as_block: bool = False):
         # notify parents about the newly created child that belongs to them
         parent_node.add_connection(new_line)
         target_node.add_connection(new_line)
+
+
+BaseGame.globals.load_file_func = load_from_file
