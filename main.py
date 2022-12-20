@@ -8,7 +8,7 @@ Author:
 Nilusink
 """
 from traceback import format_exc
-from random import  randint
+from random import randint
 import pygame as pg
 import os
 

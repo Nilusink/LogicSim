@@ -17,7 +17,7 @@ from ..basegame.groups import Drawn, Wires
 from ...additional.functions import create_bezier
 
 
-def aa_line(surface: pg.Surface, color: tuple[float, float, float], start_pos: tp.Any, end_pos: tp.Any, width: int = 1):
+def aa_line(surface: pg.Surface, color: tuple[int, int, int], start_pos: tp.Any, end_pos: tp.Any, width: int = 1):
     """
     anti-aliased line
     """
@@ -256,6 +256,9 @@ class Line(pg.sprite.Sprite):
         self.set_points.clear()
 
         self.finish()
+
+        BaseGame.clear_on_event(self.__hook_id)
+
         del self
 
     def delete(self):

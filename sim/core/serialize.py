@@ -93,8 +93,12 @@ def serialize_all(file: str):
 
     # save all wires and points
     for wire in wires:
-        pid: str = wire.parent.id
-        tid: str = wire.target.id
+        try:
+            pid: str = wire.parent.id
+            tid: str = wire.target.id
+
+        except AttributeError:  # if an AttributeError occurs, either the parent or the target are not set
+            continue
 
         out["wires"].append({
             "parent": pid,
